@@ -58,31 +58,74 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <OpenCL/opencl.h>
-
+#ifdef MAC
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 ////////////////////////////////////////////////////////////////////////////////
 
 // Use a static data size for simplicity
 //
 #define DATA_SIZE (1024)
+#define PROGRAM_FILE "hello.cl"
+#define KERNEL_FUNC "square"
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Simple compute kernel which computes the square of an input array 
-//
-const char *KernelSource = "\n" \
-"__kernel void square(                                                       \n" \
-"   __global float* input,                                              \n" \
-"   __global float* output,                                             \n" \
-"   const unsigned int count)                                           \n" \
-"{                                                                      \n" \
-"   int i = get_global_id(0);                                           \n" \
-"   if(i < count)                                                       \n" \
-"       output[i] = input[i] * input[i];                                \n" \
-"}                                                                      \n" \
-"\n";
+cl_program build_program(cl_context ctx, cl_device_id dev, const char* filename) {
 
-////////////////////////////////////////////////////////////////////////////////
+   cl_program program;
+   FILE *program_handle;
+   char *program_buffer, *program_log;
+   size_t program_size, log_size;
+   int err;
+
+   /* Read program file and place content into buffer */
+   program_handle = fopen(filename, "r");
+   if(program_handle == NULL) {
+      perror("Couldn't find the program file");
+      exit(1);
+   }
+   fseek(program_handle, 0, SEEK_END);
+   program_size = ftell(program_handle);
+   rewind(program_handle);
+   program_buffer = (char*)malloc(program_size + 1);
+   program_buffer[program_size] = '\0';
+   fread(program_buffer, sizeof(char), program_size, program_handle);
+   fclose(program_handle);
+
+   /* Create program from file 
+
+   Creates a program from the source code in the add_numbers.cl file. 
+   Specifically, the code reads the file's content into a char array 
+   called program_buffer, and then calls clCreateProgramWithSource.
+   */
+   program = clCreateProgramWithSource(ctx, 1, 
+      (const char**)&program_buffer, &program_size, &err);
+   if(err < 0) {
+      perror("Couldn't create the program");
+      exit(1);
+   }
+   free(program_buffer);
+
+   err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+   if(err < 0) {
+
+      /* Find size of log and print to std output */
+      clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 
+            0, NULL, &log_size);
+      program_log = (char*) malloc(log_size + 1);
+      program_log[log_size] = '\0';
+      clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 
+            log_size + 1, program_log, NULL);
+      printf("%s\n", program_log);
+      free(program_log);
+      exit(1);
+   }
+
+   return program;
+}
 
 int main(int argc, char** argv)
 {
@@ -95,6 +138,7 @@ int main(int argc, char** argv)
     size_t global;                      // global domain size for our calculation
     size_t local;                       // local domain size for our calculation
 
+    cl_platform_id cpPlatform;          // OpenCL platform
     cl_device_id device_id;             // compute device id 
     cl_context context;                 // compute context
     cl_command_queue commands;          // compute command queue
@@ -110,11 +154,14 @@ int main(int argc, char** argv)
     unsigned int count = DATA_SIZE;
     for(i = 0; i < count; i++)
         data[i] = rand() / (float)RAND_MAX;
+
+    // Bind to platform
+    err = clGetPlatformIDs(1, &cpPlatform, NULL);
     
     // Connect to a compute device
     //
     int gpu = 1;
-    err = clGetDeviceIDs(NULL, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
+    err = clGetDeviceIDs(cpPlatform, gpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to create a device group!\n");
@@ -141,7 +188,7 @@ int main(int argc, char** argv)
 
     // Create the compute program from the source buffer
     //
-    program = clCreateProgramWithSource(context, 1, (const char **) & KernelSource, NULL, &err);
+    program = build_program(context, device_id, PROGRAM_FILE);
     if (!program)
     {
         printf("Error: Failed to create compute program!\n");
