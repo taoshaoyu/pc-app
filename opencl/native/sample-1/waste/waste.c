@@ -163,9 +163,9 @@ int main(int argc, char *argv[]) {
    clEnqueueReadBuffer(queue, doutput, CL_TRUE, 0, bytes, houtput, 0, NULL, NULL); // <=====GET OUTPUT
 
    /* Check result */
-   /*for (i=0; i<ARRAY_SIZE; i++) {
-      printf("%f ", houtput[i]);
-   } */
+   for (int i=0; i<64; i++) {
+      printf("%f \n", houtput[i]);
+   }
 
    /* Deallocate resources */
    clReleaseKernel(kernel);
