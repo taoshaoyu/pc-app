@@ -1,6 +1,7 @@
-CU_APPS=checkDeviceInfor checkThreadIndex \
-        checkDimension \
-        hello
+CU_APPS=sumArraysOnGPU-timer \
+        sumMatrixOnGPU-1D-grid-1D-block \
+        sumArraysOnGPU-small-case \
+        sumMatrixOnGPU
 C_APPS=sumArraysOnHost
 
 all: ${C_APPS} ${CU_APPS}
