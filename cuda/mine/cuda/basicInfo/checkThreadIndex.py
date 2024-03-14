@@ -46,16 +46,16 @@ h_A = np.arange(nxy).astype(np.int32)
 
 printMatrix(h_A, nx, ny)
 
-# d_MatA = drv.mem_alloc( nxy*h_A.dtype.itemsize )
-d_MatA = drv.mem_alloc( h_A.nbytes )
-drv.memcpy_htod(d_MatA, h_A)
+#d_MatA = drv.mem_alloc( h_A.nbytes )
+#drv.memcpy_htod(d_MatA, h_A)
 
 block = (4,2,1)
 grid = (int((nx + block[0] -1) / block[0]) , int((ny + block[1] - 1) / block[1]),1)
 
 func = mod.get_function("printThreadIndex")
 
-func(d_MatA, np.uint32(nx), np.uint32(ny), block=block, grid=grid)
+# func(d_MatA, np.uint32(nx), np.uint32(ny), block=block, grid=grid)
+func(drv.In(h_A), np.uint32(nx), np.uint32(ny), block=block, grid=grid)
 
 
 
